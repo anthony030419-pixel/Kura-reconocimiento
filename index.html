@@ -1,0 +1,111 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Küra - Reconocer objetos</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 35px auto;
+      padding: 20px;
+      background: #f2f7ef;
+      color: #243324;
+    }
+    main {
+      background: white;
+      padding: 24px;
+      border-radius: 16px;
+    }
+    button, input { margin: 12px 0; }
+    button {
+      padding: 12px 18px;
+      background: #397447;
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    img { max-width: 100%; max-height: 300px; }
+    .resultado { margin: 10px 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Küra ♻️</h1>
+  <p>Selecciona una foto para identificar el objeto.</p>
+  <input id="foto" type="file" accept="image/*">
+  <div><img id="vista" alt="Vista previa" hidden></div>
+  <button id="analizar">Reconocer objeto</button>
+  <p id="estado">Modelo todavía no cargado.</p>
+  <div id="resultados"></div>
+</main>
+
+<script>
+const URL_MODELO = "https://teachablemachine.withgoogle.com/models/CAkFjvEOP/".trim();
+let modelo;
+let fotoLista = false;
+
+const entrada = document.getElementById("foto");
+const vista = document.getElementById("vista");
+const estado = document.getElementById("estado");
+const resultados = document.getElementById("resultados");
+const boton = document.getElementById("analizar");
+
+async function cargarModelo() {
+  if (modelo) return;
+  estado.textContent = "Cargando modelo...";
+  const url = URL_MODELO.endsWith("/")
+    ? URL_MODELO : URL_MODELO + "/";
+  modelo = await tmImage.load(
+    url + "model.json",
+    url + "metadata.json"
+  );
+  estado.textContent = "Modelo listo. Selecciona una foto.";
+}
+
+entrada.addEventListener("change", () => {
+  const archivo = entrada.files[0];
+  if (!archivo) return;
+  vista.src = URL.createObjectURL(archivo);
+  vista.hidden = false;
+  fotoLista = true;
+  resultados.innerHTML = "";
+});
+
+boton.addEventListener("click", async () => {
+  try {
+    if (!fotoLista) {
+      estado.textContent = "Primero selecciona una foto.";
+      return;
+    }
+    boton.disabled = true;
+    await cargarModelo();
+    estado.textContent = "Analizando imagen...";
+    const predicciones = await modelo.predict(vista);
+    predicciones.sort((a, b) => b.probability - a.probability);
+    resultados.innerHTML = "";
+    predicciones.forEach(p => {
+      const linea = document.createElement("p");
+      linea.className = "resultado";
+      linea.textContent =
+        p.className + ": " + (p.probability * 100).toFixed(1) + "%";
+      resultados.appendChild(linea);
+    });
+    estado.textContent =
+      "Resultado principal: " + predicciones[0].className;
+  } catch (error) {
+    console.error(error);
+    estado.textContent =
+      "No se pudo cargar el modelo. Revisa el enlace y la conexión.";
+  } finally {
+    boton.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
